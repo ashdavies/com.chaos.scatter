@@ -1,14 +1,20 @@
 package com.chaos.scatter;
 
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import android.net.DhcpInfo;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
+import android.net.wifi.WifiManager.MulticastLock;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.Settings;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -26,14 +32,25 @@ import android.view.WindowManager;
 
 public class MainActivity extends Activity {
 	
+	// Store context reference
+	final Context context = this;
+	
 	// WiFi manager
 	WifiManager manager;
 	
 	// Broadcast receiver
 	Receiver receiver;
 	
+	// Multicast lock and broadcast address
+	MulticastLock multicastLock;
+	InetAddress inetAddress;
+	
 	// A stored list of received signal strengths
 	Map<String, Integer> signals = new HashMap<String, Integer>( );
+	
+	// Ticker management
+	Handler handler;
+	Runnable runnable;
 	
 	// Canvas view reference
 	SurfaceView surface;
@@ -41,8 +58,7 @@ public class MainActivity extends Activity {
 	// Painter
 	Paint paint;
 	
-	@Override
-	protected void onCreate( Bundle savedInstanceState ) {
+	@Override protected void onCreate( Bundle savedInstanceState ) {
 		
 		// Call parent method
 		super.onCreate( savedInstanceState );
@@ -57,6 +73,27 @@ public class MainActivity extends Activity {
 		// Set references
 		manager = (WifiManager)getSystemService( Context.WIFI_SERVICE );
 		surface = (SurfaceView)findViewById( R.id.surface );
+		
+		// Get broadcast address
+		try {
+			
+			DhcpInfo dhcp = manager.getDhcpInfo( );
+			int broadcast = ( dhcp.ipAddress & dhcp.netmask ) | ~dhcp.netmask;
+			byte[] quads = new byte[4];
+		
+			for ( int k = 0; k < 4; k++ )
+				quads[k] = (byte)( ( broadcast >> k * 8 ) & 0xFF);
+			inetAddress = InetAddress.getByAddress( quads );
+		    
+		}
+		
+		// Handle exception
+		catch ( Exception exception ) { exception.printStackTrace( ); }
+		
+		// Acquire multicast lock
+		multicastLock = manager.createMulticastLock( "scatter" );
+		multicastLock.setReferenceCounted( Boolean.TRUE );
+		multicastLock.acquire( );
 		
 		// Set the painter
 		paint = new Paint( Paint.ANTI_ALIAS_FLAG );
@@ -77,6 +114,23 @@ public class MainActivity extends Activity {
         
         // Begin scanning
         manager.startScan( );
+        
+        // Create a runnable to send the network pulse
+        runnable = new Runnable( ) {
+			@Override public void run( ) {
+				
+				// Call pulse
+				pulse( context );
+				
+				// Repeat runnable
+				handler.postDelayed( runnable, 1000 );
+
+			}
+        };
+        
+        // Register the ticker to send pulse signals
+        handler = new Handler( );
+        handler.postDelayed( runnable, 1000 );
         
 	}
 	
@@ -108,6 +162,9 @@ public class MainActivity extends Activity {
 		
 		// Get the surface holder and lock the canvas
 		Canvas canvas = surface.getHolder( ).lockCanvas( );
+		
+		// Check for surface lock
+		if ( canvas == null ) return;
 		
         // Clear the canvas
         canvas.drawColor( Color.BLACK );
@@ -148,8 +205,7 @@ public class MainActivity extends Activity {
 	// Broadcast receiver registers received signal strength
 	private class Receiver extends BroadcastReceiver {
 
-        @Override
-        public void onReceive( Context context, Intent intent ) {
+        @Override public void onReceive( Context context, Intent intent ) {
         	
         	// Finish if WiFi is disabled
         	if ( manager.isWifiEnabled( ) == Boolean.FALSE ) return;
@@ -168,6 +224,25 @@ public class MainActivity extends Activity {
         	manager.startScan( );
         	
         }
+
+	}
+	
+	// Pulse signal strengths to receiving devices
+	private void pulse( Context context ) {
+
+		// Create a datagram socket
+		DatagramSocket socket = new DatagramSocket( 8000 );
+		socket.setBroadcast(true);
+		
+		
+		// Send packets via socket
+		//DatagramPacket packet = new DatagramPacket( signals.getBytes( ), data.length(), getBroadcastAddress( ), DISCOVERY_PORT );
+		//socket.send( packet );
+
+		// Receive and update
+		//byte[] buffer = new byte[1024];
+		//DatagramPacket packet = new DatagramPacket( buffer, buffer.length );
+		//socket.receive( packet );
 
 	}
 	
