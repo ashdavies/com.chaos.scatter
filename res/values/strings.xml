@@ -9,4 +9,9 @@
     <string name="title_server">Server</string>
     <string name="title_client">Client</string>
 
+    <string name="register">Register</string>
+    <string name="discover">Discover</string>
+    <string name="connect">Connect</string>
+    <string name="send">Send</string>
+    
 </resources>

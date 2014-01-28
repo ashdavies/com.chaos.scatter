@@ -1,48 +1,107 @@
 package com.chaos.scatter;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import android.net.wifi.p2p.WifiP2pManager;
-import android.net.wifi.p2p.WifiP2pManager.ActionListener;
-import android.net.wifi.p2p.WifiP2pManager.Channel;
-import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceInfo;
+import android.net.nsd.NsdServiceInfo;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+import android.util.Log;
+import android.view.View;
+import android.widget.EditText;
+import android.widget.TextView;
 import android.app.Activity;
 import android.content.Context;
 
 public class ServerActivity extends Activity {
+	
+	// Final reference to self context
+	final private Context context = this;
 
-	// WiFi P2P Management
-	WifiP2pManager wifiP2pManager;
-	Channel channel;
+    NsdHelper mNsdHelper;
+
+    private TextView mStatusView;
+    private Handler mUpdateHandler;
+
+    public static final String TAG = "NsdChat";
+
+    ChatConnection mConnection;
 	
 	@Override protected void onCreate( Bundle savedInstanceState ) {
 		
 		super.onCreate( savedInstanceState);
 		setContentView( R.layout.activity_server );
+		
+		
+        mStatusView = (TextView) findViewById(R.id.status);
 
-		// Store the manager and channel
-		wifiP2pManager = (WifiP2pManager)getSystemService( Context.WIFI_P2P_SERVICE );
-		channel = wifiP2pManager.initialize( this, getMainLooper( ), null );
-	    
-	}
+        mUpdateHandler = new Handler() {
+            @Override public void handleMessage( Message message ) {
+                addChatLine( message.getData( ).getString( "msg" ) );
+            }
+        };
 
-    private void startRegistration() {
-    	
-        //  Create a string map containing information about your service.
-        Map<String, String> record = new HashMap<String, String>( );
-        record.put( "listenport", "9000" );
+        mConnection = new ChatConnection( mUpdateHandler );
 
-        // Service information.
-        WifiP2pDnsSdServiceInfo serviceInfo =
-                WifiP2pDnsSdServiceInfo.newInstance( "ScatterService", "_presence._tcp", record );
-
-        // Add the local service, sending the service info, network channel, and listener.
-        wifiP2pManager.addLocalService( channel, serviceInfo, new ActionListener() {
-            @Override public void onSuccess( ) { }
-            @Override public void onFailure( int code ) { }
-        } );
+        mNsdHelper = new NsdHelper( context );
+        mNsdHelper.initializeNsd( );
         
     }
+
+    public void clickAdvertise( View view ) {
+    	
+        if( mConnection.getLocalPort( ) > -1 )
+            mNsdHelper.registerService( mConnection.getLocalPort( ) );
+        
+        else Log.d( TAG, "ServerSocket isn't bound." );
+        
+    }
+
+    public void clickDiscover( View view ) {
+        mNsdHelper.discoverServices( );
+    }
+
+    public void clickConnect( View view ) {
+    	
+        NsdServiceInfo service = mNsdHelper.getChosenServiceInfo( );
+        if ( service != null ) {
+            Log.d( TAG, "Connecting." );
+            mConnection.connectToServer( service.getHost( ), service.getPort( ) );
+        }
+        
+        else Log.d( TAG, "No service to connect to!" );
+
+    }
+
+    public void clickSend( View view ) {
+    	
+        EditText messageView = (EditText)findViewById( R.id.chatInput );
+        if ( messageView != null ) {
+            String messageString = messageView.getText( ).toString( );
+            if ( !messageString.isEmpty( ) )
+                mConnection.sendMessage( messageString );
+
+            messageView.setText( "" );
+        }
+        
+    }
+
+    public void addChatLine( String line ) {
+        mStatusView.append( "\n" + line );
+    }
+
+    @Override protected void onPause( ) {
+        if ( mNsdHelper != null ) mNsdHelper.stopDiscovery( );
+        super.onPause( );
+    }
+    
+    @Override protected void onResume( ) {
+        super.onResume( );
+        if ( mNsdHelper != null ) mNsdHelper.discoverServices( );
+    }
+    
+    @Override protected void onDestroy( ) {
+        mNsdHelper.tearDown( );
+        mConnection.tearDown( );
+        super.onDestroy( );
+    }
+    
 }
