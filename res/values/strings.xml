@@ -2,5 +2,11 @@
 <resources>
 
     <string name="application">Scatter</string>
+    
+    <string name="button_server">Start as Server</string>
+    <string name="button_client">Start as Client</string>
+    
+    <string name="title_server">Server</string>
+    <string name="title_client">Client</string>
 
 </resources>

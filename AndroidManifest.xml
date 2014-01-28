@@ -5,19 +5,20 @@
     android:versionName="1.0" >
 
     <uses-sdk
-        android:minSdkVersion="8"
+        android:minSdkVersion="16"
         android:targetSdkVersion="19" />
 
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-	<uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
-	
+    <uses-permission android:required="true" android:name="android.permission.INTERNET"/>
+    <uses-permission android:required="true" android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:required="true" android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:required="true" android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/application"
-        android:theme="@style/AppTheme" >
+        android:theme="@style/ScatterTheme" >
         
         <activity
             android:name="com.chaos.scatter.MainActivity"
@@ -27,6 +28,28 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            
+        </activity>
+        
+        <activity
+            android:name="com.chaos.scatter.ServerActivity"
+            android:label="@string/title_server"
+            android:parentActivityName="com.chaos.scatter.MainActivity" >
+            
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.chaos.scatter.MainActivity" />
+            
+        </activity>
+        
+        <activity
+            android:name="com.chaos.scatter.ClientActivity"
+            android:label="@string/title_client"
+            android:parentActivityName="com.chaos.scatter.MainActivity" >
+            
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.chaos.scatter.MainActivity" />
             
         </activity>
         
