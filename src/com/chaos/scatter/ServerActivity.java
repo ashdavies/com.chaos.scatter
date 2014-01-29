@@ -16,58 +16,70 @@ public class ServerActivity extends Activity {
 	// Final reference to self context
 	final private Context context = this;
 
-    NsdHelper mNsdHelper;
+	// Network service discovery helper
+	NSDHelper nsdHelper;
 
-    private TextView mStatusView;
-    private Handler mUpdateHandler;
+    // Status text view
+    private TextView statusTextView;
+    
+    // Update handler
+    private Handler updateHandler;
 
-    public static final String TAG = "NsdChat";
-
-    ChatConnection mConnection;
+    ChatConnection chatConnection;
 	
 	@Override protected void onCreate( Bundle savedInstanceState ) {
 		
+		// Set the activity layout
 		super.onCreate( savedInstanceState);
 		setContentView( R.layout.activity_server );
 		
-		
-        mStatusView = (TextView) findViewById(R.id.status);
+		// Set the status text view
+		statusTextView = (TextView)findViewById( R.id.status );
 
-        mUpdateHandler = new Handler() {
+		// Create an update handler to add chat line
+		updateHandler = new Handler( ) {
             @Override public void handleMessage( Message message ) {
                 addChatLine( message.getData( ).getString( "msg" ) );
             }
         };
 
-        mConnection = new ChatConnection( mUpdateHandler );
+        // Create new chat connection with the update handler
+        chatConnection = new ChatConnection( updateHandler );
 
-        mNsdHelper = new NsdHelper( context );
-        mNsdHelper.initializeNsd( );
+        // Create the network service helper and initialise
+        nsdHelper = new NSDHelper( context );
+        nsdHelper.initialise( );
         
     }
 
+	/**
+	 * Register the service
+	 */
     public void clickAdvertise( View view ) {
     	
-        if( mConnection.getLocalPort( ) > -1 )
-            mNsdHelper.registerService( mConnection.getLocalPort( ) );
+        if( chatConnection.getPort( ) > -1 )
+        	nsdHelper.registerService( chatConnection.getPort( ) );
         
-        else Log.d( TAG, "ServerSocket isn't bound." );
+        else Log.d( getClass( ).getSimpleName( ), "ServerSocket isn't bound." );
         
     }
 
+    /**
+     * Discover the network services
+     */
     public void clickDiscover( View view ) {
-        mNsdHelper.discoverServices( );
+    	nsdHelper.discoverServices( );
     }
 
     public void clickConnect( View view ) {
     	
-        NsdServiceInfo service = mNsdHelper.getChosenServiceInfo( );
+        NsdServiceInfo service = nsdHelper.getChosenServiceInfo( );
         if ( service != null ) {
-            Log.d( TAG, "Connecting." );
-            mConnection.connectToServer( service.getHost( ), service.getPort( ) );
+            Log.d( getClass( ).getSimpleName( ), "Connecting." );
+            chatConnection.connectToServer( service.getHost( ), service.getPort( ) );
         }
         
-        else Log.d( TAG, "No service to connect to!" );
+        else Log.d( getClass( ).getSimpleName( ), "No service to connect to!" );
 
     }
 
@@ -77,7 +89,7 @@ public class ServerActivity extends Activity {
         if ( messageView != null ) {
             String messageString = messageView.getText( ).toString( );
             if ( !messageString.isEmpty( ) )
-                mConnection.sendMessage( messageString );
+                chatConnection.sendMessage( messageString );
 
             messageView.setText( "" );
         }
@@ -85,22 +97,22 @@ public class ServerActivity extends Activity {
     }
 
     public void addChatLine( String line ) {
-        mStatusView.append( "\n" + line );
+        statusTextView.append( "\n" + line );
     }
 
     @Override protected void onPause( ) {
-        if ( mNsdHelper != null ) mNsdHelper.stopDiscovery( );
+        if ( nsdHelper != null ) nsdHelper.stopDiscovery( );
         super.onPause( );
     }
     
     @Override protected void onResume( ) {
         super.onResume( );
-        if ( mNsdHelper != null ) mNsdHelper.discoverServices( );
+        if ( nsdHelper != null ) nsdHelper.discoverServices( );
     }
     
     @Override protected void onDestroy( ) {
-        mNsdHelper.tearDown( );
-        mConnection.tearDown( );
+    	nsdHelper.tearDown( );
+    	nsdHelper.tearDown( );
         super.onDestroy( );
     }
     
