@@ -34,10 +34,10 @@ public abstract class Messenger {
 	protected Context context;
 	private DatagramSocket socket;
 	
-	protected abstract Runnable getIncomingMessageAnalyseRunnable( );
-	private final Handler incomingMessageHandler;
-	protected Message incomingMessage;
-	private Thread receiverThread;
+	protected abstract Runnable getIncoming( );
+	private final Handler handler;
+	protected Message incoming;
+	private Thread thread;
 	
 	/**
 	 * Class constructor
@@ -55,7 +55,7 @@ public abstract class Messenger {
 		this.context = context.getApplicationContext( );
 		this.port = port;
 		
-		incomingMessageHandler = new Handler( Looper.getMainLooper( ) );
+		handler = new Handler( Looper.getMainLooper( ) );
 
 	}
 	
@@ -208,14 +208,14 @@ public abstract class Messenger {
 						continue;
 					}
 					
-					try { incomingMessage = new Message( message, datagramPacket.getAddress( ) ); }
+					try { incoming = new Message( message, datagramPacket.getAddress( ) ); }
 					catch ( IllegalArgumentException exception ) {
 						Log.d( getClass( ).getSimpleName( ), "There was a problem processing the message: " + message );
 						exception.printStackTrace( );
 						continue;
 					}
 					
-					incomingMessageHandler.post( getIncomingMessageAnalyseRunnable( ) );
+					handler.post( getIncoming( ) );
 					
 				}
 				
@@ -228,12 +228,12 @@ public abstract class Messenger {
 		
 		// Create new receiver thread
 		receiveMessages = true;
-		if ( receiverThread == null ) receiverThread = new Thread( receiver );
-		if ( !receiverThread.isAlive( ) ) receiverThread.start( );
+		if ( thread == null ) thread = new Thread( receiver );
+		if ( !thread.isAlive( ) ) thread.start( );
 		
 	}
 	
-	public void stopReceiver() {
+	public void stopReceiver( ) {
 		receiveMessages = false;
 	}
 	

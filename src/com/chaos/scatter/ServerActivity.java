@@ -22,11 +22,11 @@ public class ServerActivity extends Activity {
 		// https://github.com/elegos/udpmulticast
 		messenger = new Messenger( context, 0 ) {
 
-			@Override protected Runnable getIncomingMessageAnalyseRunnable( ) {
+			@Override protected Runnable getIncoming( ) {
 				return null;
 			}
 			
-		}
+		};
 		
     }
 	
