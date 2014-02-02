@@ -88,7 +88,7 @@ public class ServerActivity extends Activity {
 				// Add new key
 				signals.put( message.getSource( ).getHostName( ), entry );
 				
-			}			
+			}		
 		} );
 		
 		// Start receiving datagram packets
