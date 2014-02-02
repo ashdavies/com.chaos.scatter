@@ -3,20 +3,18 @@ package com.chaos.scatter;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.DatagramPacket;
-import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
-import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 
 import android.content.Context;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.MulticastLock;
-import android.os.Handler;
-import android.os.Looper;
+import android.os.AsyncTask;
 import android.util.Log;
 
-public abstract class Messenger {
+public class Messenger {
 	
 	// WiFi manager
 	WifiManager wifiManager;
@@ -24,18 +22,28 @@ public abstract class Messenger {
 	// Buffer size represents 4kB
 	protected static final Integer BUFFER_SIZE = 4096;
 	
+	// IP address
+	protected String ip;
+	
 	// Port number
-	protected int port;
+	protected Integer port;
 	
 	// Receiving mode
 	private boolean receiveMessages = false;
 	
 	// Context and socket
 	protected Context context;
-	private DatagramSocket socket;
+	private MulticastSocket socket;
 	
-	protected abstract Runnable getIncomingMessageAnalyseRunnable( );
-	private final Handler incomingMessageHandler;
+	// Message received listeners
+	ArrayList<OnMessageReceived> messageReceivedListeners = new ArrayList<OnMessageReceived>( );
+	interface OnMessageReceived { void messageReceived( Message message ); }
+	
+	// Set message received listener
+	public void setOnMessageReceived( OnMessageReceived onMessageReceived ) {
+		if ( !messageReceivedListeners.contains( onMessageReceived ) ) messageReceivedListeners.add( onMessageReceived );
+	}
+	
 	protected Message incomingMessage;
 	private Thread receiverThread;
 	
@@ -44,7 +52,7 @@ public abstract class Messenger {
 	 * @param context the application's context
 	 * @param port the port to multi cast to. Must be between 1025 and 49151 (inclusive)
 	 */
-	public Messenger( Context context, int port ) throws IllegalArgumentException {
+	public Messenger( Context context, String ip, int port ) throws IllegalArgumentException {
 		
 		// Store WiFi manager service
 		wifiManager = (WifiManager)context.getSystemService( Context.WIFI_SERVICE );
@@ -53,9 +61,8 @@ public abstract class Messenger {
 			throw new IllegalArgumentException( );
 		
 		this.context = context.getApplicationContext( );
+		this.ip = ip;
 		this.port = port;
-		
-		incomingMessageHandler = new Handler( Looper.getMainLooper( ) );
 
 	}
 	
@@ -64,18 +71,23 @@ public abstract class Messenger {
 	 */
 	public class Message {
 		
+		// Private variables
 		private String tag;
 		private String message;
 		private long time = 0;
 		private InetAddress inetAddress;
+
+		/**
+		 * Delegate constructors
+		 */
+		public Message( String message ) throws IllegalArgumentException { this( message, (InetAddress)null ); }
+		public Message( String tag, String message ) { this( tag, message, null ); }
+		public Message( String tag, String message, InetAddress inetAddress ) { this( tag, message, inetAddress, System.currentTimeMillis( ) / 1000 ); }
 		
-		public Message( String message ) throws IllegalArgumentException {
-			this( message, (InetAddress)null );
-		}
-		
+		// Reforms the message from a parsed string
 		public Message( String message, InetAddress inetAddress ) throws IllegalArgumentException {
 			
-			String split[] = message.split( " " );
+			String[] split = message.split( " " );
 			if ( split.length < 3 ) throw new IllegalArgumentException( );
 			
 			this.tag = split[ 0 ];
@@ -83,31 +95,25 @@ public abstract class Messenger {
 			this.inetAddress = inetAddress;
 			
 			this.message = "";
-			for ( int i = 2; i < split.length - 1; i++ )
-				this.message += message.concat( split[ i ] + " " );
+			for ( int i = 2; i < split.length; i++ )
+				this.message += split[ i ] + " ";
 			
 		}
 		
-		public Message( String tag, String message ) {
-			this( tag, message, null );
-		}
-		
-		public Message( String tag, String message, InetAddress inetAddress ) {
-			this( tag, message, inetAddress, System.currentTimeMillis( ) / 1000 );
-		}
-		
-		public Message( String tag, String message, InetAddress inetAddress, long time) {
+		public Message( String tag, String message, InetAddress inetAddress, long time ) {
 			this.tag = tag;
 			this.message = message;
 			this.time = time;
 			this.inetAddress = inetAddress;
 		}
 		
+		// Getter methods
 		public String getTag( ) { return tag; }
 		public String getMessage( ) { return message; }
-		public long getEpochTime( ) { return time; }
-		public InetAddress getSrcIp( ) { return inetAddress; }
+		public long getTime( ) { return time; }
+		public InetAddress getSource( ) { return inetAddress; }
 		
+		// Formats the message as a string
 		public String toString( ) { return tag + " " + time + " " + message; }
 		
 	}
@@ -117,20 +123,37 @@ public abstract class Messenger {
 	 * @param message the message to send. It can't be null or 0-characters long.
 	 * @throws IllegalArgumentException
 	 */
-	public boolean send( String string ) throws IllegalArgumentException {
+	public void send( String string ) throws IllegalArgumentException {
+		
+		// Create an asynchronous task to send network data
+		AsyncTask<String, Void, Boolean> asyncTask = new AsyncTask<String, Void, Boolean>( ) {
+			@Override protected Boolean doInBackground( String... messages ) {
+				for( String message : messages ) transmit( message );
+				return null;
+			}
+		};
+		
+		// Execute the task
+		asyncTask.execute( string );
+		
+	}
+		
+	private boolean transmit( String string ) throws IllegalArgumentException {
 		
 		// Validate message
-		if ( string == null || string.length( ) == 0 ) throw new IllegalArgumentException();
+		if ( string == null || string.length( ) == 0 ) throw new IllegalArgumentException( );
 	
 		// Check for IP address
-		int ipAddress = wifiManager.getConnectionInfo( ).getIpAddress( );
-		if ( ipAddress <= 0 ) return Boolean.FALSE;
+		if ( ip == null ) ip = ipToString( wifiManager.getConnectionInfo( ).getIpAddress( ), true );
 		
 		// Create the send socket
 		if ( socket == null ) {
-			try { socket = new DatagramSocket( ); }
-			catch ( SocketException exception ) {
-				Log.d( getClass( ).getSimpleName( ), "There was a problem creating the sending socket. Aborting." );
+			try {
+				socket = new MulticastSocket( port );
+				socket.joinGroup( InetAddress.getByName( ip ) );
+			}
+			catch ( IOException exception ) {
+				Log.d( getClass( ).getSimpleName( ), "Impossible to create a new MulticastSocket on port " + port );
 				exception.printStackTrace( );
 				return Boolean.FALSE;
 			}
@@ -142,9 +165,9 @@ public abstract class Messenger {
 		byte data[] = message.toString( ).getBytes( );
 		
 		// Create the datagram packet
-		try { packet = new DatagramPacket( data, data.length, InetAddress.getByName( ipToString( ipAddress, true ) ), port ); }
+		try { packet = new DatagramPacket( data, data.length, InetAddress.getByName( ip ), port ); }
 		catch ( UnknownHostException exception ) {
-			Log.d( getClass( ).getSimpleName( ), "It seems that " + ipToString( ipAddress, true ) + " is not a valid ip! Aborting." );
+			Log.d( getClass( ).getSimpleName( ), "It seems that " + ip + " is not a valid ip! Aborting." );
 			exception.printStackTrace( );
 			return false;
 		}
@@ -167,7 +190,7 @@ public abstract class Messenger {
 			@Override public void run( ) {
 				
 				// Acquire multicast lock
-				MulticastLock multiCastLock = wifiManager.createMulticastLock( "Scatter" );
+				MulticastLock multiCastLock = wifiManager.createMulticastLock( "SCATTER" );
 				multiCastLock.acquire( );
 				
 				// Create new datagram packet
@@ -176,7 +199,11 @@ public abstract class Messenger {
 				MulticastSocket multiCastSocket;
 				
 				// Create new multicast socket
-				try { multiCastSocket = new MulticastSocket( port ); }
+				try {
+					multiCastSocket = new MulticastSocket( port );
+					multiCastSocket.joinGroup( InetAddress.getByName( ip ) );
+				}
+				
 				catch ( IOException exception ) {
 					Log.d( getClass( ).getSimpleName( ), "Impossible to create a new MulticastSocket on port " + port );
 					exception.printStackTrace( );
@@ -184,22 +211,22 @@ public abstract class Messenger {
 				}
 				
 				// Process receiving messages
-				while ( receiveMessages ) {
-					
+				while ( true ) {
+
 					try { multiCastSocket.receive( datagramPacket ); }
-					catch ( IOException exception ) {
+					catch ( Exception exception ) {
 						Log.d( getClass( ).getSimpleName( ), "There was a problem receiving the incoming message." );
 						exception.printStackTrace( );
 						continue;
 					}
 					
-					if( !receiveMessages ) break;
+					if ( !receiveMessages ) break;
 					
 					// Check for end of file
-					byte data[] = datagramPacket.getData( ); int i;
+					byte data[] = datagramPacket.getData( ); int i = 0;
 					for ( i = 0; i < data.length; i++ ) if ( data[ i ] == '\0' ) break;
 					
-					// Create message
+					// Create message					
 					String message;
 					try { message = new String( data, 0, i, "UTF-8" ); }
 					catch ( UnsupportedEncodingException exception ) {
@@ -208,14 +235,20 @@ public abstract class Messenger {
 						continue;
 					}
 					
+					
 					try { incomingMessage = new Message( message, datagramPacket.getAddress( ) ); }
 					catch ( IllegalArgumentException exception ) {
 						Log.d( getClass( ).getSimpleName( ), "There was a problem processing the message: " + message );
 						exception.printStackTrace( );
 						continue;
 					}
+
+					// Check for a message
+					if ( incomingMessage == null ) break;
 					
-					incomingMessageHandler.post( getIncomingMessageAnalyseRunnable( ) );
+					// Post to any registered listeners
+					for( OnMessageReceived onMessageReceived : messageReceivedListeners )
+						onMessageReceived.messageReceived( incomingMessage );
 					
 				}
 				
