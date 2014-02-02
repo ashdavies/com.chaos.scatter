@@ -44,8 +44,8 @@ public class Messenger {
 		if ( !messageReceivedListeners.contains( onMessageReceived ) ) messageReceivedListeners.add( onMessageReceived );
 	}
 	
-	protected Message incomingMessage;
-	private Thread receiverThread;
+	protected Message incoming;
+	private Thread thread;
 	
 	/**
 	 * Class constructor
@@ -234,9 +234,8 @@ public class Messenger {
 						exception.printStackTrace( );
 						continue;
 					}
-					
-					
-					try { incomingMessage = new Message( message, datagramPacket.getAddress( ) ); }
+
+					try { incoming = new Message( message, datagramPacket.getAddress( ) ); }
 					catch ( IllegalArgumentException exception ) {
 						Log.d( getClass( ).getSimpleName( ), "There was a problem processing the message: " + message );
 						exception.printStackTrace( );
@@ -244,11 +243,12 @@ public class Messenger {
 					}
 
 					// Check for a message
-					if ( incomingMessage == null ) break;
-					
+					if ( incoming == null ) break;
+
 					// Post to any registered listeners
 					for( OnMessageReceived onMessageReceived : messageReceivedListeners )
-						onMessageReceived.messageReceived( incomingMessage );
+						onMessageReceived.messageReceived( incoming );
+					
 					
 				}
 				
@@ -261,12 +261,12 @@ public class Messenger {
 		
 		// Create new receiver thread
 		receiveMessages = true;
-		if ( receiverThread == null ) receiverThread = new Thread( receiver );
-		if ( !receiverThread.isAlive( ) ) receiverThread.start( );
+		if ( thread == null ) thread = new Thread( receiver );
+		if ( !thread.isAlive( ) ) thread.start( );
 		
 	}
 	
-	public void stopReceiver() {
+	public void stopReceiver( ) {
 		receiveMessages = false;
 	}
 	

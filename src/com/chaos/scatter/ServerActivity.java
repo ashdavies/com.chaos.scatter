@@ -8,7 +8,6 @@ import com.chaos.scatter.Messenger.OnMessageReceived;
 
 import android.os.Bundle;
 import android.os.Handler;
-import android.util.Log;
 import android.view.SurfaceView;
 import android.view.Window;
 import android.view.WindowManager;
