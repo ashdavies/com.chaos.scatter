@@ -19,7 +19,7 @@ public class MainActivity extends Activity implements OnClickListener {
 	final Context context = this;
 	
 	// WiFi manager
-	WifiManager manager;
+	WifiManager wifiManager;
 	
 	@Override protected void onCreate( Bundle savedInstanceState ) {
 		
@@ -31,7 +31,9 @@ public class MainActivity extends Activity implements OnClickListener {
 		getWindow( ).setFlags( WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN );
 		
 		// Store WiFiManager reference
-		manager = (WifiManager)getSystemService( Context.WIFI_SERVICE );
+		wifiManager = (WifiManager)getSystemService( Context.WIFI_SERVICE );
+		if ( wifiManager.isWifiEnabled( ) == Boolean.FALSE )
+			wifiManager.setWifiEnabled( Boolean.TRUE );
 		
 		// Set the layout view
 		setContentView( R.layout.activity_main );
@@ -43,24 +45,24 @@ public class MainActivity extends Activity implements OnClickListener {
 	}
 	
 	// Check for WiFi on application resume
-	protected void onResume( ) {
+	/*protected void onResume( ) {
 		
 		// Call parent method
 		super.onResume( );
 		
         // Show a dialog to prompt the user to enable the WiFi
-        if ( manager.isWifiEnabled( ) != Boolean.TRUE )
+        if ( wifiManager.isWifiEnabled( ) != Boolean.TRUE )
         	new AlertDialog.Builder( this )
             	.setTitle( "This application uses WiFi" )
                 .setMessage( "Would you like to enable WiFi on your device?" )
                 .setPositiveButton( "Yes", new DialogInterface.OnClickListener( ) {
                 	public void onClick( DialogInterface dialog, int which )
-                    	{ startActivity( new Intent( Settings.ACTION_WIFI_SETTINGS ) ); }
+                    	{ wifiManager.setWifiEnabled( Boolean.TRUE ); }
                 } )
                 .setCancelable( Boolean.FALSE )
                 .show( );
         
-	}
+	}*/
 
 	@Override public void onClick( View view ) {
 

@@ -20,7 +20,7 @@ public class ClientActivity extends Activity {
 	final private Context context = this;
 
 	// WiFi manager
-	WifiManager manager;
+	WifiManager wifiManager;
 	
 	// UDP Messenger protocol
 	Messenger messenger;
@@ -38,7 +38,7 @@ public class ClientActivity extends Activity {
 		setContentView( R.layout.activity_client );
         
 		// Set references
-		manager = (WifiManager)getSystemService( Context.WIFI_SERVICE );
+		wifiManager = (WifiManager)getSystemService( Context.WIFI_SERVICE );
 		update = (TextView)findViewById( R.id.update );
 		
 		// Create a new messenger
@@ -55,7 +55,7 @@ public class ClientActivity extends Activity {
         registerReceiver( receiver, intentFilter );
         
         // Begin scanning
-        manager.startScan( );
+        wifiManager.startScan( );
 		
 	}
 
@@ -70,10 +70,10 @@ public class ClientActivity extends Activity {
         @Override public void onReceive( Context context, Intent intent ) {
         	
         	// Finish if WiFi is disabled
-        	if ( manager.isWifiEnabled( ) == Boolean.FALSE ) return;
+        	if ( wifiManager.isWifiEnabled( ) == Boolean.FALSE ) return;
         	
         	// Get scan results
-        	List<ScanResult> results = manager.getScanResults( );
+        	List<ScanResult> results = wifiManager.getScanResults( );
         	
         	// UDP transmission string
         	List<String> signals = new ArrayList<String>( );
@@ -105,7 +105,7 @@ public class ClientActivity extends Activity {
         	messenger.send( TextUtils.join( ",", signals ) + ";" );
         	
         	// Repeat the scan
-        	manager.startScan( );
+        	wifiManager.startScan( );
         	
         }
 	}
